@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoPulse — AI for Real Estate</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #E8C97A;
+    --gold-dark: #8B6914;
+    --ivory: #F5F0E8;
+    --charcoal: #1A1A1A;
+    --charcoal-mid: #2C2C2C;
+    --charcoal-light: #3D3D3D;
+    --white: #FFFFFF;
+    --text-muted: #8A8A8A;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--charcoal);
+    color: var(--ivory);
+    overflow-x: hidden;
+    cursor: none;
+  }
+  .cursor {
+    width: 12px; height: 12px;
+    background: var(--gold);
+    border-radius: 50%;
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    transition: transform 0.1s ease;
+  }
+  .cursor-follower {
+    width: 36px; height: 36px;
+    border: 1px solid var(--gold);
+    border-radius: 50%;
+    position: fixed;
+    pointer-events: none;
+    z-index: 9998;
+    transition: all 0.15s ease;
+    opacity: 0.5;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 24px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+    background: linear-gradient(to bottom, rgba(26,26,26,0.95), transparent);
+    backdrop-filter: blur(2px);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-decoration: none;
+  }
+  .logo span { color: var(--ivory); }
+  nav ul { display: flex; gap: 40px; list-style: none; }
+  nav ul a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    transition: color 0.3s;
+  }
+  nav ul a:hover { color: var(--gold); }
+  .nav-cta {
+    background: transparent !important;
+    border: 1px solid var(--gold) !important;
+    color: var(--gold) !important;
+    padding: 10px 24px;
+    font-size: 12px !important;
+    letter-spacing: 2px !important;
+    transition: all 0.3s !important;
+    cursor: none;
+  }
+  .nav-cta:hover { background: var(--gold) !important; color: var(--charcoal) !important; }
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding: 120px 60px 80px;
+  }
+  .hero-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(201,168,76,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(201,168,76,0.06) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridMove 20s linear infinite;
+  }
+  @keyframes gridMove { 0% { transform: translateY(0); } 100% { transform: translateY(60px); } }
+  .hero-glow {
+    position: absolute;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    animation: glowPulse 4s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  }
+  .orb {
+    position: absolute; border-radius: 50%; filter: blur(60px);
+    animation: orbFloat linear infinite; opacity: 0.15;
+  }
+  .orb-1 { width: 300px; height: 300px; background: var(--gold); top: 10%; left: 5%; animation-duration: 18s; }
+  .orb-2 { width: 200px; height: 200px; background: #8B6914; bottom: 20%; right: 10%; animation-duration: 22s; animation-delay: -8s; }
+  .orb-3 { width: 150px; height: 150px; background: var(--gold-light); top: 60%; left: 30%; animation-duration: 15s; animation-delay: -5s; }
+  @keyframes orbFloat {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    33% { transform: translateY(-40px) translateX(20px); }
+    66% { transform: translateY(20px) translateX(-20px); }
+  }
+  .hero-content { position: relative; z-index: 2; text-align: center; max-width: 900px; }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.3);
+    padding: 8px 20px; border-radius: 100px; font-size: 12px;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--gold);
+    margin-bottom: 40px; opacity: 0; animation: fadeInUp 0.8s ease 0.2s forwards;
+  }
+  .hero-badge::before {
+    content: ''; width: 6px; height: 6px; background: var(--gold);
+    border-radius: 50%; animation: blink 1.5s ease infinite;
+  }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .hero h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(52px, 8vw, 96px); font-weight: 300;
+    line-height: 1.05; letter-spacing: -1px; margin-bottom: 32px;
+    opacity: 0; animation: fadeInUp 0.8s ease 0.4s forwards;
+  }
+  .hero h1 em {
+    font-style: italic; color: var(--gold); position: relative;
+  }
+  .hero h1 em::after {
+    content: ''; position: absolute; bottom: 4px; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    animation: lineSlide 3s ease infinite;
+  }
+  @keyframes lineSlide {
+    0% { opacity: 0; transform: scaleX(0); }
+    50% { opacity: 1; transform: scaleX(1); }
+    100% { opacity: 0; transform: scaleX(0); }
+  }
+  .hero p {
+    font-size: 18px; line-height: 1.8; color: var(--text-muted);
+    max-width: 600px; margin: 0 auto 48px; font-weight: 300;
+    opacity: 0; animation: fadeInUp 0.8s ease 0.6s forwards;
+  }
+  .hero-cta {
+    display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+    opacity: 0; animation: fadeInUp 0.8s ease 0.8s forwards;
+  }
+  .btn-primary {
+    background: var(--gold); color: var(--charcoal); padding: 16px 40px;
+    border: none; font-family: 'DM Sans', sans-serif; font-size: 13px;
+    font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+    cursor: none; position: relative; overflow: hidden; transition: all 0.3s ease;
+    text-decoration: none; display: inline-block;
+  }
+  .btn-primary::before {
+    content: ''; position: absolute; inset: 0; background: var(--gold-light);
+    transform: translateX(-100%); transition: transform 0.4s ease;
+  }
+  .btn-primary:hover::before { transform: translateX(0); }
+  .btn-primary span { position: relative; z-index: 1; }
+  .btn-secondary {
+    background: transparent; color: var(--ivory); padding: 16px 40px;
+    border: 1px solid rgba(245,240,232,0.2); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase;
+    cursor: none; transition: all 0.3s ease; text-decoration: none; display: inline-block;
+  }
+  .btn-secondary:hover { border-color: var(--gold); color: var(--gold); }
+  .stats-bar {
+    display: flex; justify-content: center; gap: 80px; padding: 60px;
+    border-top: 1px solid rgba(201,168,76,0.1); border-bottom: 1px solid rgba(201,168,76,0.1);
+    opacity: 0; animation: fadeInUp 0.8s ease 1s forwards;
+  }
+  .stat-item { text-align: center; }
+  .stat-number {
+    font-family: 'Cormorant Garamond', serif; font-size: 48px; font-weight: 600;
+    color: var(--gold); display: block; line-height: 1; margin-bottom: 8px;
+  }
+  .stat-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); }
+  section { padding: 120px 60px; }
+  .section-label { font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; display: block; }
+  .section-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(36px, 5vw, 64px); font-weight: 300; line-height: 1.1; margin-bottom: 24px; }
+  .section-title em { font-style: italic; color: var(--gold); }
+  .features-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1px; background: rgba(201,168,76,0.1); margin-top: 80px;
+  }
+  .feature-card {
+    background: var(--charcoal); padding: 60px 48px;
+    position: relative; overflow: hidden; transition: background 0.4s ease;
+  }
+  .feature-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    transform: scaleX(0); transition: transform 0.4s ease;
+  }
+  .feature-card:hover::before { transform: scaleX(1); }
+  .feature-card:hover { background: var(--charcoal-mid); }
+  .feature-icon {
+    width: 56px; height: 56px; border: 1px solid rgba(201,168,76,0.3);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 32px; font-size: 24px; position: relative; transition: border-color 0.3s;
+  }
+  .feature-card:hover .feature-icon { border-color: var(--gold); }
+  .feature-number {
+    position: absolute; top: -10px; right: -10px;
+    font-family: 'Cormorant Garamond', serif; font-size: 11px; color: var(--gold); letter-spacing: 1px;
+  }
+  .feature-card h3 { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; margin-bottom: 16px; color: var(--ivory); }
+  .feature-card p { font-size: 14px; line-height: 1.8; color: var(--text-muted); font-weight: 300; }
+  .workflow-section { background: var(--charcoal-mid); padding: 120px 60px; }
+  .workflow-steps { display: flex; flex-direction: column; margin-top: 80px; max-width: 800px; }
+  .step {
+    display: flex; gap: 40px; padding: 48px 0;
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+    opacity: 0; transform: translateX(-30px); transition: all 0.6s ease;
+  }
+  .step.visible { opacity: 1; transform: translateX(0); }
+  .step-number {
+    font-family: 'Cormorant Garamond', serif; font-size: 72px; font-weight: 300;
+    color: rgba(201,168,76,0.15); line-height: 1; min-width: 80px; transition: color 0.3s;
+  }
+  .step:hover .step-number { color: rgba(201,168,76,0.4); }
+  .step-content h3 { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; margin-bottom: 12px; color: var(--ivory); }
+  .step-content p { font-size: 14px; line-height: 1.8; color: var(--text-muted); }
+  .marquee-section { padding: 40px 0; overflow: hidden; border-top: 1px solid rgba(201,168,76,0.1); border-bottom: 1px solid rgba(201,168,76,0.1); }
+  .marquee-track { display: flex; gap: 60px; animation: marquee 20s linear infinite; white-space: nowrap; }
+  .marquee-item {
+    font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--text-muted);
+    letter-spacing: 2px; display: flex; align-items: center; gap: 20px; flex-shrink: 0;
+  }
+  .marquee-item::after { content: '◆'; color: var(--gold); font-size: 10px; }
+  @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  .cta-section { text-align: center; padding: 160px 60px; position: relative; overflow: hidden; }
+  .cta-section::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(201,168,76,0.08) 0%, transparent 70%);
+  }
+  footer {
+    padding: 60px; border-top: 1px solid rgba(201,168,76,0.1);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  footer p { font-size: 12px; color: var(--text-muted); letter-spacing: 1px; }
+  footer .logo { font-size: 20px; }
+  .divider { width: 60px; height: 1px; background: var(--gold); margin: 32px 0; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+  .reveal { opacity: 0; transform: translateY(40px); transition: all 0.8s ease; }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+  @media (max-width: 768px) {
+    nav { padding: 20px 24px; }
+    nav ul { display: none; }
+    section, .workflow-section { padding: 80px 24px; }
+    .hero { padding: 100px 24px 60px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .stats-bar { gap: 40px; padding: 40px 24px; flex-wrap: wrap; }
+    footer { flex-direction: column; gap: 20px; padding: 40px 24px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-follower" id="cursorFollower"></div>
+
+<nav>
+  <a href="#" class="logo">Auto<span>Pulse</span></a>
+  <ul>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#workflow">Workflow</a></li>
+    <li><a href="#about">About</a></li>
+    <li><a href="https://github.com/bikashseth26-lang/autopulse" class="nav-cta">GitHub</a></li>
+  </ul>
+</nav>
+
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="hero-content">
+    <div class="hero-badge">AI-Powered Real Estate Automation</div>
+    <h1>Close Deals.<br><em>Not Spreadsheets.</em></h1>
+    <p>AutoPulse automates your entire real estate pipeline — from lead capture to client communication — so you can focus on what matters: closing.</p>
+    <div class="hero-cta">
+      <a href="https://github.com/bikashseth26-lang/autopulse" class="btn-primary"><span>View on GitHub</span></a>
+      <a href="#workflow" class="btn-secondary">See How It Works</a>
+    </div>
+  </div>
+</section>
+
+<div class="stats-bar">
+  <div class="stat-item">
+    <span class="stat-number counting" data-target="80">0</span>
+    <span class="stat-label">% Time Saved on Follow-ups</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-number counting" data-target="24">0</span>
+    <span class="stat-label">/ 7 Lead Response</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-number counting" data-target="3">0</span>
+    <span class="stat-label">x More Listings Managed</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-number counting" data-target="100">0</span>
+    <span class="stat-label">% n8n Powered</span>
+  </div>
+</div>
+
+<div class="marquee-section">
+  <div class="marquee-track">
+    <span class="marquee-item">Lead Management</span>
+    <span class="marquee-item">Property Database</span>
+    <span class="marquee-item">Client Communication</span>
+    <span class="marquee-item">AI Automation</span>
+    <span class="marquee-item">CRM Integration</span>
+    <span class="marquee-item">n8n Workflows</span>
+    <span class="marquee-item">Email Campaigns</span>
+    <span class="marquee-item">WhatsApp Alerts</span>
+    <span class="marquee-item">Lead Management</span>
+    <span class="marquee-item">Property Database</span>
+    <span class="marquee-item">Client Communication</span>
+    <span class="marquee-item">AI Automation</span>
+    <span class="marquee-item">CRM Integration</span>
+    <span class="marquee-item">n8n Workflows</span>
+    <span class="marquee-item">Email Campaigns</span>
+    <span class="marquee-item">WhatsApp Alerts</span>
+  </div>
+</div>
+
+<section id="features">
+  <div class="reveal">
+    <span class="section-label">What AutoPulse Does</span>
+    <h2 class="section-title">Built for Real Estate.<br><em>Powered by AI.</em></h2>
+    <div class="divider"></div>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card reveal">
+      <div class="feature-icon">🎯<span class="feature-number">01</span></div>
+      <h3>Automated Lead Capture</h3>
+      <p>Instantly capture leads from any source — website forms, WhatsApp, Instagram DMs — and funnel them directly into your CRM without lifting a finger.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🏠<span class="feature-number">02</span></div>
+      <h3>Property Database Sync</h3>
+      <p>Keep your property listings automatically updated across all platforms. Sync availability, pricing, and details in real-time with zero manual work.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">💬<span class="feature-number">03</span></div>
+      <h3>AI Client Communication</h3>
+      <p>Respond to inquiries instantly with AI-generated, personalized messages. Follow up at the right time with the right property match.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">📊<span class="feature-number">04</span></div>
+      <h3>Sales Pipeline Reports</h3>
+      <p>Get daily automated reports on your deal pipeline, lead status, and conversion metrics delivered straight to your inbox every morning.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🔔<span class="feature-number">05</span></div>
+      <h3>Smart Appointment Booking</h3>
+      <p>Let clients book property viewings automatically. Calendar sync, reminder notifications, and follow-up messages — all handled automatically.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">⚡<span class="feature-number">06</span></div>
+      <h3>n8n Workflow Engine</h3>
+      <p>Every automation is built on n8n — open-source, self-hostable, and infinitely customizable. You own your workflows, forever.</p>
+    </div>
+  </div>
+</section>
+
+<div class="workflow-section" id="workflow">
+  <div class="reveal">
+    <span class="section-label">How It Works</span>
+    <h2 class="section-title">Your Pipeline.<br><em>On Autopilot.</em></h2>
+    <div class="divider"></div>
+  </div>
+  <div class="workflow-steps">
+    <div class="step">
+      <div class="step-number">01</div>
+      <div class="step-content">
+        <h3>Lead Comes In</h3>
+        <p>A prospect fills out a form, sends a WhatsApp, or DMs your Instagram. AutoPulse captures it instantly and logs it to your CRM with full details.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-number">02</div>
+      <div class="step-content">
+        <h3>AI Qualifies & Matches</h3>
+        <p>The AI analyzes the lead's requirements — budget, location, property type — and matches them with the best listings from your database automatically.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-number">03</div>
+      <div class="step-content">
+        <h3>Personalized Response Sent</h3>
+        <p>A personalized message with matched properties is sent within seconds. No delay. No missed opportunities. Available 24 hours, 7 days a week.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-number">04</div>
+      <div class="step-content">
+        <h3>Follow-up Sequences Run</h3>
+        <p>Multi-step follow-up sequences run automatically over days — emails, WhatsApp nudges, and reminders — keeping your lead warm until they're ready to buy.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-number">05</div>
+      <div class="step-content">
+        <h3>You Close the Deal</h3>
+        <p>You show up to the meeting. The client is already informed, pre-qualified, and excited. All you do is close. AutoPulse handled everything else.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ABOUT SECTION - Redesigned -->
+<section id="about" style="padding: 0; overflow: hidden;">
+
+  <!-- Top split: Creator card + Mission -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; min-height: 560px;">
+
+    <!-- Left: Dark gold panel -->
+    <div style="background: linear-gradient(135deg, #1a1208 0%, #2a1f08 50%, #1A1A1A 100%); padding: 80px 60px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden;">
+      <!-- Decorative corner lines -->
+      <div style="position: absolute; top: 40px; left: 40px; width: 60px; height: 60px; border-top: 1px solid rgba(201,168,76,0.4); border-left: 1px solid rgba(201,168,76,0.4);"></div>
+      <div style="position: absolute; bottom: 40px; right: 40px; width: 60px; height: 60px; border-bottom: 1px solid rgba(201,168,76,0.4); border-right: 1px solid rgba(201,168,76,0.4);"></div>
+
+      <div class="reveal">
+        <span style="font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); display: block; margin-bottom: 24px;">The Creator</span>
+        <!-- Avatar placeholder with initials -->
+        <div style="width: 80px; height: 80px; border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 28px; position: relative;">
+          <span style="font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; color: var(--gold);">B</span>
+          <div style="position: absolute; inset: -6px; border: 1px solid rgba(201,168,76,0.2); border-radius: 50%; animation: glowPulse 3s ease infinite;"></div>
+        </div>
+        <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 600; color: var(--ivory); margin-bottom: 8px;">bikashseth26</h3>
+        <p style="font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 24px;">Dubai · AI Automation Builder</p>
+        <p style="font-size: 14px; line-height: 1.9; color: var(--text-muted); max-width: 340px;">
+          Building AI-powered systems that eliminate repetitive work for real estate professionals across the Middle East and beyond.
+        </p>
+
+        <!-- Social links row -->
+        <div style="display: flex; gap: 16px; margin-top: 40px;">
+          <a href="https://github.com/bikashseth26-lang/autopulse" style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid rgba(201,168,76,0.3); padding-bottom: 4px; transition: color 0.3s; cursor: none;" onmouseenter="this.style.color='#C9A84C'" onmouseleave="this.style.color='#8A8A8A'">
+            GitHub ↗
+          </a>
+          <a href="https://n8n.io" style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); text-decoration: none; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid rgba(201,168,76,0.3); padding-bottom: 4px; transition: color 0.3s; cursor: none;" onmouseenter="this.style.color='#C9A84C'" onmouseleave="this.style.color='#8A8A8A'">
+            n8n ↗
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Mission statement -->
+    <div style="background: var(--charcoal-mid); padding: 80px 60px; display: flex; flex-direction: column; justify-content: center; position: relative; border-left: 1px solid rgba(201,168,76,0.1);">
+      <div class="reveal">
+        <span style="font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); display: block; margin-bottom: 24px;">Our Mission</span>
+        <h2 style="font-family: 'Cormorant Garamond', serif; font-size: clamp(32px, 4vw, 52px); font-weight: 300; line-height: 1.15; margin-bottom: 32px;">
+          Real estate agents deserve to spend time<br><em style="color: var(--gold); font-style: italic;">closing deals,</em><br>not chasing data.
+        </h2>
+        <div style="width: 40px; height: 1px; background: var(--gold); margin-bottom: 32px;"></div>
+        <p style="font-size: 15px; line-height: 1.9; color: var(--text-muted); margin-bottom: 20px;">
+          AutoPulse was born from one frustration: watching talented agents lose hours every day to manual tasks that a machine could handle in seconds.
+        </p>
+        <p style="font-size: 15px; line-height: 1.9; color: var(--text-muted);">
+          Every workflow in this repository is battle-tested, free to use, and built to run on your own infrastructure — no subscriptions, no vendor lock-in.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom: Tech stack bar -->
+  <div style="background: #111111; padding: 48px 60px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(201,168,76,0.1); flex-wrap: wrap; gap: 32px;">
+    <span style="font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-muted);">Built With</span>
+    <div style="display: flex; gap: 48px; align-items: center; flex-wrap: wrap;">
+      <div class="tech-pill" style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 8px; height: 8px; background: #FF6B35; border-radius: 50%;"></div>
+        <span style="font-size: 13px; letter-spacing: 1px; color: var(--ivory);">n8n Workflows</span>
+      </div>
+      <div class="tech-pill" style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 8px; height: 8px; background: #10A37F; border-radius: 50%;"></div>
+        <span style="font-size: 13px; letter-spacing: 1px; color: var(--ivory);">OpenAI / Gemini</span>
+      </div>
+      <div class="tech-pill" style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 8px; height: 8px; background: #25D366; border-radius: 50%;"></div>
+        <span style="font-size: 13px; letter-spacing: 1px; color: var(--ivory);">WhatsApp API</span>
+      </div>
+      <div class="tech-pill" style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 8px; height: 8px; background: #EA4335; border-radius: 50%;"></div>
+        <span style="font-size: 13px; letter-spacing: 1px; color: var(--ivory);">Google Suite</span>
+      </div>
+      <div class="tech-pill" style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 8px; height: 8px; background: var(--gold); border-radius: 50%;"></div>
+        <span style="font-size: 13px; letter-spacing: 1px; color: var(--ivory);">MIT License</span>
+      </div>
+    </div>
+    <a href="https://github.com/bikashseth26-lang/autopulse" class="btn-primary" style="flex-shrink: 0;"><span>⭐ Star on GitHub</span></a>
+  </div>
+
+</section>
+
+<footer>
+  <a href="#" class="logo">Auto<span>Pulse</span></a>
+  <p>Built with n8n · MIT License · © 2026 bikashseth26-lang</p>
+  <p style="font-size: 11px; letter-spacing: 1px; color: rgba(138,138,138,0.5);">DUBAI · REAL ESTATE · AI</p>
+</footer>
+
+<script>
+  const cursor = document.getElementById('cursor');
+  const follower = document.getElementById('cursorFollower');
+  let mouseX = 0, mouseY = 0, followerX = 0, followerY = 0;
+
+  document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX; mouseY = e.clientY;
+    cursor.style.left = mouseX - 6 + 'px';
+    cursor.style.top = mouseY - 6 + 'px';
+  });
+
+  function animateFollower() {
+    followerX += (mouseX - followerX) * 0.12;
+    followerY += (mouseY - followerY) * 0.12;
+    follower.style.left = followerX - 18 + 'px';
+    follower.style.top = followerY - 18 + 'px';
+    requestAnimationFrame(animateFollower);
+  }
+  animateFollower();
+
+  document.querySelectorAll('a, button').forEach(el => {
+    el.addEventListener('mouseenter', () => { cursor.style.transform = 'scale(2)'; follower.style.transform = 'scale(1.5)'; });
+    el.addEventListener('mouseleave', () => { cursor.style.transform = 'scale(1)'; follower.style.transform = 'scale(1)'; });
+  });
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll('.reveal, .step').forEach(el => observer.observe(el));
+
+  function animateCounter(el) {
+    const target = parseInt(el.dataset.target);
+    const start = performance.now();
+    function update(now) {
+      const progress = Math.min((now - start) / 2000, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.floor(eased * target);
+      if (progress < 1) requestAnimationFrame(update);
+      else el.textContent = target;
+    }
+    requestAnimationFrame(update);
+  }
+
+  const counterObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) { animateCounter(entry.target); counterObserver.unobserve(entry.target); }
+    });
+  }, { threshold: 0.5 });
+
+  document.querySelectorAll('.counting').forEach(el => counterObserver.observe(el));
+</script>
+</body>
+</html>
